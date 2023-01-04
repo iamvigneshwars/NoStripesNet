@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import torchvision.utils as utils
 
 from training import getVisualizer, getTrainingData
-from models import BaseGAN, WindowGAN, MaskedGAN, init_weights
+from models import BaseGAN, WindowGAN, MaskedGAN, MPNGAN,   init_weights
 from models.generators import *
 from models.discriminators import *
 from datasets import PairedWindowDataset, BaseDataset, PairedFullDataset, MaskedDataset
@@ -76,11 +76,17 @@ def test(model, dataloader, metrics, display_each_batch=False, verbose=True, vis
         [overall_mean_scores[key].append(metric_scores[key]) for key in metric_scores]
         # Calculate discriminator accuracies
         # fake
-        disc_in = torch.cat((model.realA, model.fakeB), dim=1)
+        if isinstance(model, MPNGAN):
+            disc_in = model.fakeB
+        else:
+            disc_in = torch.cat((model.realA, model.fakeB), dim=1)
         disc_out = model.disc(disc_in)
         fake_accuracy = accuracy(torch.sigmoid(disc_out), torch.zeros_like(disc_out))
         # real
-        disc_in = torch.cat((model.realA, model.realB), dim=1)
+        if isinstance(model, MPNGAN):
+            disc_in = model.realB
+        else:
+            disc_in = torch.cat((model.realA, model.realB), dim=1)
         disc_out = model.disc(disc_in)
         real_accuracy = accuracy(torch.sigmoid(disc_out), torch.ones_like(disc_out))
         total_accuracy = (fake_accuracy + real_accuracy) * 0.5
@@ -204,8 +210,15 @@ if __name__ == '__main__':
         dataset = MaskedDataset(root=dataroot, mode='test', tvt=tvt, size=size, shifts=num_shifts,
                                 transform=transform, simple=model_name=='simple')
         model = MaskedGAN(gen, disc, mode='test', device=device)
+    elif args.model == 'mpn':
+        dataset = MaskedDataset(root=dataroot, mode='test', tvt=tvt, size=size, shifts=num_shifts, transform=transform)
+        # Create models
+        mpn = MPN()
+        gen = MPNUNet()
+        disc.setMPN()
+        model = MPNGAN(gen, mpn, disc, mode='test', lsgan=True, device=device)
     else:
-        raise ValueError(f"Argument '--model' should be one of ['window', 'base', 'full', 'mask', 'simple]. "
+        raise ValueError(f"Argument '--model' should be one of ['window', 'base', 'full', 'mask', 'simple', 'mpn']. "
                          f"Instead got '{model_name}'")
 
     # Test

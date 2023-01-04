@@ -44,6 +44,43 @@ class BaseDiscriminator(nn.Module):
             nn.LeakyReLU(0.2, inplace=True)
         )
 
+    def setMPN(self):
+        self.net[0] = self.down(1, 64, batchNorm=False)
+
+
+class MPN(nn.Module):
+    def __init__(self):
+        super(MPN, self).__init__()
+        self.net = nn.Sequential(
+            # Input (1, 402, 362) -> Output (1, 200, 180)
+            self.mpn_layer(),
+
+            # Input (1, 200, 180) -> Output (1, 99, 89)
+            self.mpn_layer(),
+
+            # Input (1, 99, 89) -> Output (1, 48, 43)
+            self.mpn_layer(),
+
+            # Input (1, 48, 43) -> Output (1, 23, 20)
+            self.mpn_layer(),
+
+            # Input (1, 23, 20) -> Output (1, 10, 9)
+            self.mpn_layer(),
+
+            # Input (1, 10, 9) -> Output (1, 4, 4)
+            self.mpn_layer(p=(0, 1)),
+
+            # Input (1, 4, 4) -> Output (1, 1, 1)
+            self.mpn_layer(),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+    @staticmethod
+    def mpn_layer(k=(4, 4), s=(2, 2), p=(0, 0)):
+        return nn.AvgPool2d(kernel_size=k, stride=s, padding=p)
+
 
 class WindowDiscriminator(nn.Module):
     def __init__(self):

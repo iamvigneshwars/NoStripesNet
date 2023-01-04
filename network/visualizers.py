@@ -194,7 +194,7 @@ class MaskedVisualizer(BaseGANVisualizer):
         item = np.random.randint(0, self.model.realA.shape[0])
         clean = self.model.realB.detach().cpu()[item]
         stripe = self.model.realA.detach().cpu()[item]
-        mask = self.model.mask.detach().cpu()[item]
+        mask = self.model.mask.detach().cpu()[item].bool()
         gen_in = stripe.clone()
         gen_in[mask] = 0
         gen_out = self.model.fakeB.detach().cpu()[item]

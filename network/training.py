@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Subset
 import torchvision.transforms as transforms
 import torchvision.utils as utils
 
-from models import BaseGAN, WindowGAN, MaskedGAN, init_weights
+from models import BaseGAN, WindowGAN, MaskedGAN, MPNGAN, init_weights
 from models.discriminators import *
 from models.generators import *
 from visualizers import BaseGANVisualizer, PairedWindowGANVisualizer, MaskedVisualizer
@@ -262,8 +262,15 @@ if __name__ == '__main__':
                                 simple=args.model=='simple')
         model = MaskedGAN(gen, disc, mode='train', learning_rate=learning_rate, betas=betas, lambdaL1=lambdal1,
                           lsgan=lsgan, device=device)
+    elif args.model == 'mpn':
+        dataset = MaskedDataset(root=dataroot, mode='train', tvt=tvt, size=size, shifts=num_shifts, transform=transform)
+        # Create models
+        mpn = MPN()
+        gen = MPNUNet()
+        model = MPNGAN(gen, mpn, disc, mode='train', learning_rate=learning_rate, betas=betas, lambdaL1=lambdal1,
+                       lsgan=True, device=device)
     else:
-        raise ValueError(f"Argument '--model' should be one of ['window', 'base', 'full', 'mask', 'simple]. "
+        raise ValueError(f"Argument '--model' should be one of ['window', 'base', 'full', 'mask', 'simple', 'mpn']. "
                          f"Instead got '{args.model}'")
 
     # Train

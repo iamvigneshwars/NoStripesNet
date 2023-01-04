@@ -257,3 +257,69 @@ class MaskedGAN(BaseGAN):
         # Step 3 - Combine losses and call backwards pass
         self.lossG = self.lossG_GAN + self.lossG_L1
         self.lossG.backward()
+
+
+class MPNGAN(BaseGAN):
+    def __init__(self, gen, mpn, disc=None, mode='train', learning_rate=0.01, betas=(0.5, 0.999), lambdaL1=100.0,
+                 lsgan=True, device=None):
+        super().__init__(gen, disc, mode=mode, learning_rate=learning_rate, betas=betas, lambdaL1=lambdaL1,
+                         lsgan=lsgan, device=device)
+        self.mpn_D = mpn
+        self.lossGAN = self.mask_fusion_loss
+
+    @staticmethod
+    def mask_fusion_loss(inpt, target, mpn_out):
+        return torch.mean(torch.square(mpn_out * (target - inpt)))
+
+    def preprocess(self, a, b):
+        self.mask = a[:, 1].unsqueeze(dim=1).type(torch.float32)
+        self.realA = (a[:, 0].unsqueeze(dim=1) * (1 - self.mask)).to(self.device)
+        self.mask = self.mask.to(self.device)
+        self.realB = b.to(self.device)
+
+    def forward(self):
+        gen_in = torch.cat([self.realA, self.mask], dim=1)
+        self.fakeB = self.realA + self.mask * self.gen(gen_in)
+
+    def backwardD(self):
+        """Run backward pass for discriminator, conditioned on masks rather than inputs
+        Real label == 1, Fake label == 0"""
+        # Step 1 - calculate discriminator loss on fake inputs
+        D_G_x1 = self.disc(self.fakeB.detach())
+        N_s = self.mpn_D(self.mask)
+        outFake = D_G_x1 * N_s
+        labels = torch.zeros_like(outFake)
+        self.lossD_fake = self.lossGAN(outFake, labels, N_s)
+
+        # Step 2 - calculate discriminator loss on real inputs
+        D_x = self.disc(self.realB)
+        outReal = D_x * N_s
+        labels = torch.ones_like(outReal)
+        self.lossD_real = self.lossGAN(outReal, labels, N_s)
+
+        # Step 3 - Combine losses and call backwards pass
+        self.lossD = (self.lossD_fake + self.lossD_real)
+        self.lossD.backward()
+
+        # Some processing so results can be printed
+        self.D_G_x1 = self.getDiscOutput(outFake)
+        self.D_x = self.getDiscOutput(outReal)
+
+    def backwardG(self):
+        """Run backward pass for generator"""
+        # Step 1 - Calculate GAN loss for fake images, i.e. disc incorrect predictions
+        D_G_x2 = self.disc(self.fakeB)
+        N_s = self.mpn_D(self.mask)
+        outFake = D_G_x2 * N_s
+        labels = torch.ones_like(outFake)
+        self.lossG_GAN = self.lossGAN(outFake, labels, N_s)
+
+        # Step 2 - Calculate L1 loss for fake images, i.e. how similar fake were to real
+        self.lossG_L1 = self.lossL1(self.fakeB, self.realB) * self.lambdaL1
+
+        # Step 3 - Combine losses and call backwards pass
+        self.lossG = self.lossG_GAN + self.lossG_L1
+        self.lossG.backward()
+
+        # Some processing so results can be printed
+        self.D_G_x2 = self.getDiscOutput(outFake)
