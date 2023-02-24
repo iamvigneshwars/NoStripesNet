@@ -5,7 +5,7 @@ import h5py as h5
 from mpi4py import MPI
 import numpy as np
 import multiprocessing
-from utils.data_io import saveTiff
+from utils.data_io import saveTiff, rescale
 from utils.stripe_detection import detect_stripe_larix
 
 
@@ -117,6 +117,7 @@ if __name__ == '__main__':
     print(f"Load time: {stop - start:5}s")
 
     # Apply stripe detection
+    data = rescale(data)
     start = timeit.default_timer()
     mask = detect_stripe_larix(data)
     stop = timeit.default_timer()
