@@ -128,18 +128,18 @@ def detect_stripe_larix(sinogram, threshold=0.1):
             Binary (boolean) mask, with True where a stripe has been detected,
             and False everywhere else.
     """
-    (stripe_weights, grad_stats) = STRIPES_DETECT(sinogram,
-                                                  search_window_dims=(1, 7, 1),
-                                                  vert_window_size=5,
-                                                  gradient_gap=3)
-    # threshold weights to get a initialisation of the mask
-    mask = np.zeros_like(stripe_weights, dtype="uint8")
-    mask = np.ascontiguousarray(mask, dtype=np.uint8)
-    mask[stripe_weights > grad_stats[3] / threshold] = 1
-
+    stripe_weights = STRIPES_DETECT(sinogram,
+                                    vert_filter_size_perc=5,
+                                    radius_size=3,
+                                    ncore=0)
     # merge edges that are close to each other
-    mask = STRIPES_MERGE(np.ascontiguousarray(mask, dtype=np.uint8),
-                         stripe_width_max_perc=25, dilate=3)
+    mask = STRIPES_MERGE(stripe_weights,
+                         threshold=0.7,
+                         stripe_length_perc=20.0,
+                         stripe_depth_perc=1.0,
+                         stripe_width_perc=2.0,
+                         sensitivity_perc=80.0,
+                         ncore=0)
     return mask.astype(np.bool_)
 
 
