@@ -55,8 +55,8 @@ class TomoH5:
         if type(item) == int:
             new_item = item + lo
         elif type(item) == slice:
-            new_item = slice(item.start + lo,
-                             item.stop + lo,
+            new_item = slice(item.start + lo if item.start is not None else lo,
+                             item.stop + lo if item.stop is not None else None,
                              item.step)
         elif type(item) == tuple:
             if type(item[0]) == int:
