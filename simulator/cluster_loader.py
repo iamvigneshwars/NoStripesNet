@@ -126,7 +126,7 @@ def new_detect_stripe_larix(data):
     data = rescale(data)
     start = timeit.default_timer()
     print("Calculating stripe weights...")
-    weights = STRIPES_DETECT(data, size=250, radius_size=3)
+    weights = STRIPES_DETECT(data, size=250, radius=3)
     middle = timeit.default_timer()
     print("Merging stripe weights...")
     mask = STRIPES_MERGE(weights,
@@ -136,13 +136,12 @@ def new_detect_stripe_larix(data):
                          min_stripe_width=22,
                          sensitivity_perc=85.0)
     stop = timeit.default_timer()
-    print(f"Mask: {mask.shape}, {mask.dtype}, [{mask.min()}, {mask.max()}]")
     print(f"Times: "
           f"\tSTRIPES_DETECT:  {middle - start:5}s\n"
           f"\tSTRIPES_MERGE :  {stop - middle:5}s\n"
           f"\tTotal         :  {stop - start:5}s")
-    filename = f'./mask_{sino_index:04}'
-    saveTiff(mask[:, sino_index, :], filename, normalise=True)
+    filename = f'./mask_1080'
+    saveTiff(mask[:, 1080, :], filename, normalise=True)
     return mask
 
 
@@ -192,35 +191,48 @@ def createPariedWindows(data, mask, num_windows):
                 saveTiff(stripe, filename, normalise=True)
 
 
+def test_merge_parameters(weights, parameter, parameter_range):
+    """Generate and save a series of masks using different parameter values.
+    Masks are all saved under a single numpy compressed '.npz' file.
+    Masks are saved with the keyword:
+        '<parameter>_<current_param_value>'
+    where <current_param_value> is the value of `parameter` used to generate
+    that mask.
+    Parameters:
+        weights: np.ndarray
+            Stripe weights to generate masks from, output from STRIPES_DETECT
+            function in Larix.
+        parameter : str
+            Name of parameter to alter for each mask generation.
+        parameter_range : iterable
+            Iterable of parameter values to use for each mask generation.
+    """
+    # Define default parameters
+    parameters = dict(threshold=0.6,
+                      min_stripe_length=600,
+                      min_stripe_depth=30,
+                      min_stripe_width=22,
+                      sensitivity_perc=85.0)
+    # Initialise empty dictionary of masks
+    masks = {}
+    # Loop through each parameter in range
+    for param in parameter_range:
+        # Set given parameter name to current parameter value
+        parameters[parameter] = param
+        # Calculate mask with current set of parameters
+        masks[f'{parameter}_{param}'] = STRIPES_MERGE(weights, **parameters)
+    # Save masks to numpy zip file
+    np.savez_compressed('./test_merge_parameters.npz', **masks)
+
+
 if __name__ == '__main__':
-    tomo = TomoH5('/dls/i12/data/2022/nt33730-1/rawdata/119617.nxs')
-    print(f"Data Shape: {tomo.shape}")
-    if tomo.contains_flats():
-        print(f"Flats: {tomo.flats.shape}")
-    if tomo.contains_darks():
-        print(f"Darks: {tomo.darks.shape}")
-
-    # Load normalized 3D tomogram
+    # Get weights
     start = timeit.default_timer()
-    data = tomo.get_normalized(np.s_[:])
+    weights = np.load('../stripe_weights.npz')['stripe_weights']
     stop = timeit.default_timer()
-    print(f"Tomogram: {data.shape}, {data.dtype}, "
-          f"[{data.min()}, {data.max()}]")
+    print(f"Weights: {weights.shape}, {weights.dtype}, "
+          f"[{weights.min()}, {weights.max()}]")
     print(f"Load time: {stop - start:5}s")
 
-    # Save sinogram
-    sino_index = 1080
-    sino = data[:, sino_index, :]
-    saveTiff(sino, f'./sinogram_{sino_index:04}', normalise=True)
-
-    # Get mask
-    start = timeit.default_timer()
-    mask = np.load('../stripesmasksand.npz')['stripesmask']
-    stop = timeit.default_timer()
-    print(f"Mask: {mask.shape}, {mask.dtype}, [{mask.min()}, {mask.max()}]")
-    print(f"Load time: {stop - start:5}s")
-    filename = f'./mask_{sino_index:04}'
-    saveTiff(mask[:, sino_index, :], filename, normalise=True)
-
-    # Split data into windows and create input/target pairs
-    createPariedWindows(data, mask, num_windows=5)
+    threshold_range = [0.6, 0.61, 0.62, 0.63]
+    test_merge_parameters(weights, 'threshold', threshold_range)
