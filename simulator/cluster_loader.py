@@ -210,8 +210,6 @@ def createPariedWindows(data, mask, patch_size):
     mask = np.swapaxes(mask, 0, 1)
     # Loop through each sinogram
     for s in range(data.shape[0]):
-        if s < 1200:
-            continue
         if s % 100 == 0:
             print(f"Processing sinogram {s:04}...", end=' ', flush=True)
         # Normalise sinogram
