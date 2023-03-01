@@ -77,6 +77,12 @@ def get_masks(pre_made=False, weights_file=None, masks_file=None):
         if weights_file is None:
             raise AttributeError(
                 "If `pre_made` is False, `weights_file` must be given.")
+        # Get parameter name & range from user
+        param_name = input("Enter name of parameter to test: ")
+        param_range = input(
+            "Enter the values of the parameter you would like "
+            "to test, separated by commas: ")
+        param_range = [float(p) for p in param_range.split(',')]
         # Get weights
         print(f"Loading weights...")
         start = timeit.default_timer()
@@ -84,11 +90,6 @@ def get_masks(pre_made=False, weights_file=None, masks_file=None):
         print(f"Done in {timeit.default_timer() - start:.5f}s")
         print(f"Weights: {weights.shape}, {weights.dtype}, "
               f"[{weights.min()}, {weights.max()}]")
-        # Get parameter name & range from user
-        param_name = input("Enter name of parameter to test: ")
-        param_range = input("Enter the values of the parameter you would like "
-                            "to test, separated by commas: ")
-        param_range = [float(p) for p in param_range.split(',')]
         # Test given parameter range
         masks = test_merge_parameters(weights, param_name, param_range)
         return masks.values(), param_name, param_range
