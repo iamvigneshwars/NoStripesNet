@@ -145,7 +145,51 @@ def new_detect_stripe_larix(data):
     return mask
 
 
-def createPariedWindows(data, mask, num_windows):
+def create_patches(data, patch_size):
+    """Split a 2D array into a number of smaller 2D patches.
+    Parameters:
+        data : np.ndarray
+            Data to be split into patches. If data does not evenly fit into
+            the size of patch specified, it will be cropped.
+        patch_size : Tuple[int, int]
+            Size of patches. Must have form:
+                (patch_height, patch_width)
+    Returns:
+        np.ndarray
+            Array containing patches. Has shape:
+                (num_patches, patch_height, patch_width)
+    """
+    # Check that data can be evenly split into patches of size `patch_size`
+    remainder = np.mod(data.shape, patch_size)
+    if remainder[0] != 0:
+        # If patch height doesn't evenly go into image height, crop image
+        if remainder[0] % 2 == 0:
+            # If remainder is even, crop evenly on bottom & top
+            data = data[remainder[0]//2:-(remainder[0]//2)]
+        else:
+            # Otherwise, crop one more from top
+            data = data[remainder[0]//2:-(remainder[0]//2) - 1]
+    if remainder[1] != 0:
+        # If patch width doesn't evenly go into image width, crop image
+        if remainder[1] % 2 == 0:
+            # If remainder is even, crop evenly on left & right
+            data = data[:, remainder[1]//2:-(remainder[1]//2)]
+        else:
+            # Otherwise, crop one more from right
+            data = data[:, remainder[1]//2:-(remainder[1]//2) - 1]
+    # First, split into patches by width
+    num_patches_w = data.shape[1] // patch_size[1]
+    patches_w = np.split(data, num_patches_w, axis=1)
+    # Then, split into patches by height
+    num_patches_h = data.shape[0] // patch_size[0]
+    patches_h = [np.split(p, num_patches_h, axis=0) for p in patches_w]
+    # Finally, combine into one array
+    num_patches = num_patches_h * num_patches_w
+    patches = np.asarray(patches_h).reshape(num_patches, *patch_size)
+    return patches
+
+
+def createPariedWindows(data, mask, patch_size):
     """Create input/target pairs given a tomogram and its stripe location mask.
     Splits sinograms into windows, so that image sizes are smaller and the
     volume of training data is larger.
@@ -166,17 +210,23 @@ def createPariedWindows(data, mask, num_windows):
     mask = np.swapaxes(mask, 0, 1)
     # Loop through each sinogram
     for s in range(data.shape[0]):
-        # Split sinogram into 5 windows of width 512 pixels
-        sino_windows = np.split(data[s], num_windows, axis=-1)
-        mask_windows = np.split(mask[s], num_windows, axis=-1)
+        if s < 1200:
+            continue
+        if s % 100 == 0:
+            print(f"Processing sinogram {s:04}...", end=' ', flush=True)
+        # Normalise sinogram
+        sino = rescale(data[s], b=65535).astype(np.uint16)
+        # Split sinogram & mask into windows
+        sino_windows = create_patches(sino, patch_size)
+        mask_windows = create_patches(mask[s], patch_size)
         # Loop through each window
-        for w in range(num_windows):
+        for w in range(70):
             # if sinogram doesn't contain stripes, create input/target pair
             if mask_windows[w].sum() == 0:
                 # Save 'clean' target
                 clean = sino_windows[w]
                 filename = f'data/clean/{s:04}_w{w:02}'
-                saveTiff(clean, filename, normalise=True)
+                saveTiff(clean, filename, normalise=False)
                 # Add synthetic stripes to sinogram
                 # currently done with TomoPhantom, other methods could be used
                 stripe_type = np.random.choice(['partial', 'full'])
@@ -188,7 +238,9 @@ def createPariedWindows(data, mask, num_windows):
                 stripe = np.clip(stripe, clean.min(), clean.max())
                 # Save 'stripe' input
                 filename = f'data/stripe/{s:04}_w{w:02}'
-                saveTiff(stripe, filename, normalise=True)
+                saveTiff(stripe, filename, normalise=False)
+        if s % 100 == 0:
+            print("Done.")
 
 
 if __name__ == '__main__':
@@ -207,19 +259,12 @@ if __name__ == '__main__':
           f"[{data.min()}, {data.max()}]")
     print(f"Load time: {stop - start:5}s")
 
-    # Save sinogram
-    sino_index = 1080
-    sino = data[:, sino_index, :]
-    saveTiff(sino, f'./sinogram_{sino_index:04}', normalise=True)
-
     # Get mask
     start = timeit.default_timer()
     mask = np.load('../stripesmasksand.npz')['stripesmask']
     stop = timeit.default_timer()
     print(f"Mask: {mask.shape}, {mask.dtype}, [{mask.min()}, {mask.max()}]")
     print(f"Load time: {stop - start:5}s")
-    filename = f'./mask_{sino_index:04}'
-    saveTiff(mask[:, sino_index, :], filename, normalise=True)
 
     # Split data into windows and create input/target pairs
-    createPariedWindows(data, mask, num_windows=5)
+    createPariedWindows(data, mask, patch_size=(256, 256))
