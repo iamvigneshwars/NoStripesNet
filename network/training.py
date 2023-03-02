@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 from .models import BaseGAN, WindowGAN, MaskedGAN, init_weights
 from .models.discriminators import *
 from .models.generators import *
+from .models.cluster_models import ClusterUNet, ClusterDiscriminator
 from .visualizers import BaseGANVisualizer, PairedWindowGANVisualizer, MaskedVisualizer
 from .datasets import PairedWindowDataset, BaseDataset, PairedFullDataset, MaskedDataset, RandomSubset
 from utils import Rescale
@@ -374,6 +375,15 @@ if __name__ == '__main__':
                                 size=size, shifts=num_shifts,
                                 transform=transform,
                                 simple=args.model=='simple')
+        model = MaskedGAN(gen, disc, mode='train', learning_rate=learning_rate,
+                          betas=betas, lambdaL1=lambdal1, lsgan=lsgan,
+                          device=device)
+    elif args.model == 'cluster':
+        dataset = MaskedDataset(root=dataroot, mode='train', tvt=tvt,
+                                size=size, shifts=num_shifts,
+                                transform=transform, simple=True)
+        disc = ClusterDiscriminator()
+        gen = ClusterUNet()
         model = MaskedGAN(gen, disc, mode='train', learning_rate=learning_rate,
                           betas=betas, lambdaL1=lambdal1, lsgan=lsgan,
                           device=device)
