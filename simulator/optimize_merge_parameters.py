@@ -123,7 +123,8 @@ if __name__ == '__main__':
                 images = [sino] + [m[:, sino_index, :] for m in masks]
                 titles = [f"Sinogram {sino_index}"] + \
                          [f"{param_name}={p}" for p in param_range]
-                plot_images(*images, titles=titles, subplot_size=(3, 2))
-        except (ValueError, IndexError):
-            print("Please enter an integer in range [0, 2159]")
+                plot_images(*images, titles=titles,
+                            subplot_size=(2, (len(images)+1)//2))
+        except (ValueError, IndexError) as e:
+            print(f"Error: \n\t{e}")
         inpt = input("Enter sinogram index or quit (q): ")
