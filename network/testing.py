@@ -9,6 +9,7 @@ from .training import getVisualizer, getTrainingData
 from .models import BaseGAN, WindowGAN, MaskedGAN, init_weights
 from .models.generators import *
 from .models.discriminators import *
+from .models.cluster_models import ClusterUNet, ClusterDiscriminator
 from .datasets import PairedWindowDataset, BaseDataset, PairedFullDataset, \
     MaskedDataset
 from utils import apply_metrics, test_metrics, Rescale
@@ -259,6 +260,13 @@ if __name__ == '__main__':
                                 shifts=num_shifts,
                                 transform=transform,
                                 simple=model_name=='simple')
+        model = MaskedGAN(gen, disc, mode='test', device=device)
+    elif args.model == 'cluster':
+        dataset = MaskedDataset(root=dataroot, mode='test', tvt=tvt,
+                                size=size, shifts=num_shifts,
+                                transform=transform, simple=True)
+        disc = ClusterDiscriminator()
+        gen = ClusterUNet()
         model = MaskedGAN(gen, disc, mode='test', device=device)
     else:
         raise ValueError(f"Argument '--model' should be one of "
