@@ -200,9 +200,9 @@ def createPariedWindows(data, mask, patch_size):
         mask : np.ndarray
             Binary mask of same shape as `data`, with 1 where stripes are and 0
             everywhere else.
-        num_windows : int
-            Number of windows to split a sinogram into. Total sinogram width
-            must be divisible by this parameter.
+        patch_size : Tuple[int, int]
+            Patch size to split sinograms into. If sinogram shape does not go
+            evenly into patch size, the sinogram will be cropped.
     """
     # Swap axes so sinograms are in axis 0
     # i.e. data has shape (detector Y, angles, detector X)
@@ -237,6 +237,15 @@ def createPariedWindows(data, mask, patch_size):
                 # Save 'stripe' input
                 filename = f'data/stripe/{s:04}_w{w:02}'
                 saveTiff(stripe, filename, normalise=False)
+            else:
+                # Otherwise, save to different directory as real artifact
+                stripe = sino_windows[w]
+                filename = f'data/real_artifacts/{s:04}_w{w:02}'
+                saveTiff(stripe, filename, normalise=False)
+                # Save mask as well
+                mask_w = mask_windows[w].astype(np.bool_)
+                filename = f'data/real_artifacts/mask_{s:04}_w{w:02}'
+                np.save(filename, mask_w)
         if s % 100 == 0:
             print("Done.")
 
