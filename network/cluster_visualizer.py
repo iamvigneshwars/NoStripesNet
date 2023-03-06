@@ -5,7 +5,7 @@ import torch
 from utils.data_io import loadTiff, rescale
 from utils.tomography import reconstruct
 from utils.misc import toTensor, toNumpy, plot_images
-from .models.cluster_models import ClusterUNet
+from network.models.cluster_models import ClusterUNet
 
 
 class PatchVisualizer:
@@ -253,7 +253,7 @@ class PatchVisualizer:
         """
         model_sino = self.get_model_sinogram(index)
         recon = reconstruct(model_sino)
-        plt.imshow(recon, cmap='gray', vmin=-0.1, vmax=0.3)
+        plt.imshow(recon, cmap='gray', vmin=-0.1, vmax=0.2)
         plt.title(f"Model Output Reconstruction {index}")
         if show:
             plt.show()
@@ -281,11 +281,14 @@ class PatchVisualizer:
 
 
 if __name__ == '__main__':
+    root = '/dls/science/users/iug27979/NoStripesNet'
     model = ClusterUNet()
-    checkpoint = torch.load('pretrained_models/cluster_1.tar',
+    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1_lr0.0001.tar',
                             map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['gen_state_dict'])
-    v = PatchVisualizer('/dls/science/users/iug27979/NoStripesNet/data', model)
+    v = PatchVisualizer(f'{root}/data', model)
 
-    sino_idx = 1234
+    sino_idx = 1089
     v.plot_all(sino_idx)
+    v.plot_all(1666)
+    v.plot_all(900)
