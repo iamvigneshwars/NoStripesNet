@@ -338,6 +338,7 @@ class PatchVisualizer:
             plt.subplot(*subplot_size, 6)
             self.plot_model_reconstruction(index, 'fake', show=False)
             plt.clim(-0.1, 0.15)
+        plt.savefig(f'./images/{sino_idx}_synthArt_var0')
         plt.show()
 
     def plot_all_raw(self, index, recon=True):
@@ -354,16 +355,19 @@ class PatchVisualizer:
             self.plot_reconstruction(index, 'raw', show=False)
             plt.subplot(*subplot_size, 4)
             self.plot_model_reconstruction(index, 'real', show=False)
+        plt.savefig(f'./images/{sino_idx}_realArt_var0')
         plt.show()
 
 
 if __name__ == '__main__':
     root = '/dls/science/users/iug27979/NoStripesNet'
     model = ClusterUNet()
-    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1_lr0.0001.tar',
+    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1_variabilityZero.tar',
                             map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['gen_state_dict'])
     v = PatchVisualizer(f'{root}/data', model)
 
-    sino_idx = 1080
-    v.plot_all_raw(sino_idx, recon=False)
+    for sino_idx in [900, 1089, 1666]:
+        v.plot_all(sino_idx, recon=True)
+    for sino_idx in [852, 1080, 1200]:
+        v.plot_all_raw(sino_idx, recon=True)
