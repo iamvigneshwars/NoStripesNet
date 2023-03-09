@@ -303,14 +303,10 @@ class PatchVisualizer:
         plt.subplot(*subplot_size, 2)
         stripe = self.plot_sinogram(index, 'stripe', show=False)
         if recon:
-            clean_recon = reconstruct(rescale(clean))
             plt.subplot(*subplot_size, 3)
-            plt.imshow(clean_recon, cmap='gray', vmin=-0.1, vmax=0.2)
-            plt.title(f"Clean Reconstruction {index}")
-            stripe_recon = reconstruct(rescale(stripe))
+            self.plot_reconstruction(index, 'clean', show=False)
             plt.subplot(*subplot_size, 4)
-            plt.imshow(stripe_recon, cmap='gray', vmin=-0.05, vmax=0.1)
-            plt.title(f"Stripe Reconstruction {index}")
+            self.plot_reconstruction(index, 'stripe', show=False)
         plt.show()
         return clean, stripe
 
@@ -338,8 +334,10 @@ class PatchVisualizer:
             self.plot_reconstruction(index, 'clean', show=False)
             plt.subplot(*subplot_size, 5)
             self.plot_reconstruction(index, 'stripe', show=False)
+            plt.clim(-0.01, 0.03)
             plt.subplot(*subplot_size, 6)
             self.plot_model_reconstruction(index, 'fake', show=False)
+            plt.clim(-0.1, 0.15)
         plt.show()
 
     def plot_all_raw(self, index, recon=True):
