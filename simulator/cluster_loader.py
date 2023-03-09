@@ -219,7 +219,7 @@ def createPariedWindows(data, mask, patch_size):
         stripe = add_stripes(sino, percentage=2, maxthickness=2,
                              intensity_thresh=0.2,
                              stripe_type='full',
-                             variability=0.005)
+                             variability=0)
         # Clip back to original range
         stripe = np.clip(stripe, sino.min(), sino.max())
         # Split sinogram, mask, & stripe into windows
