@@ -338,8 +338,10 @@ class PatchVisualizer:
             plt.subplot(*subplot_size, 6)
             self.plot_model_reconstruction(index, 'fake', show=False)
             plt.clim(-0.1, 0.15)
-        plt.savefig(f'./images/{sino_idx}_synthArt_var0')
+        fig = plt.gcf()
         plt.show()
+        fig.set_size_inches((11, 8.5), forward=False)
+        fig.savefig(f'./images/{sino_idx}_realArt_var0', dpi=500)
 
     def plot_all_raw(self, index, recon=True):
         if recon:
@@ -355,8 +357,10 @@ class PatchVisualizer:
             self.plot_reconstruction(index, 'raw', show=False)
             plt.subplot(*subplot_size, 4)
             self.plot_model_reconstruction(index, 'real', show=False)
-        plt.savefig(f'./images/{sino_idx}_realArt_var0')
+        fig = plt.gcf()
         plt.show()
+        fig.set_size_inches((11, 8.5), forward=False)
+        fig.savefig(f'./images/{sino_idx}_realArt_var0', dpi=500)
 
 
 if __name__ == '__main__':
