@@ -227,7 +227,7 @@ def createPariedWindows(data, mask, patch_size):
         mask_windows = create_patches(mask[s], patch_size)
         stripe_windows = create_patches(stripe, patch_size)
         # Loop through each window
-        for w in range(70):
+        for w in range(len(sino_windows)):
             # if sinogram doesn't contain stripes, create input/target pair
             if mask_windows[w].sum() == 0:
                 # Save 'clean' target
