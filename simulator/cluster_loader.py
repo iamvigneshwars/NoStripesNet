@@ -274,4 +274,4 @@ if __name__ == '__main__':
     print(f"Load time: {stop - start:5}s")
 
     # Split data into windows and create input/target pairs
-    createPariedWindows(data, mask, patch_size=(256, 256))
+    createPariedWindows(data, mask, patch_size=(1801, 256))
