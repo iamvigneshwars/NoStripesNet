@@ -7,28 +7,28 @@ class ClusterUNet(nn.Module):
         super(ClusterUNet, self).__init__()
         filters = 64
 
-        # Input (1, 256, 256) -> Output (64, 128, 128)
+        # Input (1, 1801, 256) -> Output (64, 900, 128)
         self.down1 = self.down(1, filters, batchNorm=False)
 
-        # Input (64, 128, 128) -> Output (128, 64, 64)
+        # Input (64, 900, 128) -> Output (128, 450, 64)
         self.down2 = self.down(filters, filters*2)
 
-        # Input (128, 64, 64) -> Output (256, 32, 32)
+        # Input (128, 450, 64) -> Output (256, 225, 32)
         self.down3 = self.down(filters*2, filters*4)
 
-        # Input (256, 32, 32) -> Output (512, 16, 16)
+        # Input (256, 225, 32) -> Output (512, 112, 16)
         self.down4 = self.down(filters*4, filters*8)
 
-        # Input (512, 16, 16) -> Output (512, 8, 8)
+        # Input (512, 112, 16) -> Output (512, 56, 8)
         self.down5 = self.down(filters*8, filters*8)
 
-        # Input (512, 8, 8) -> Output (512, 4, 4)
+        # Input (512, 56, 8) -> Output (512, 28, 4)
         self.down6 = self.down(filters*8, filters*8)
 
-        # Input (512, 4, 4) -> Output (512, 2, 2)
+        # Input (512, 28, 4) -> Output (512, 14, 2)
         self.down7 = self.down(filters*8, filters*8)
 
-        # Input (512, 2, 2) -> Output (512, 1, 1)
+        # Input (512, 14, 2) -> Output (512, 7, 1)
         self.down8 = nn.Sequential(
             nn.Conv2d(filters*8, filters*8, kernel_size=(4, 4), stride=(2, 2),
                       padding=(1, 1), bias=False),
@@ -37,30 +37,30 @@ class ClusterUNet(nn.Module):
 
         ####### UP #######
 
-        # Input (512, 1, 1) -> Output (512, 2, 2)
+        # Input (512, 7, 1) -> Output (512, 14, 2)
         self.up1 = self.up(filters*8, filters*8, dropout=True)
 
-        # Input (1024, 2, 2) -> Output (512, 4, 4)
+        # Input (1024, 14, 2) -> Output (512, 28, 4)
         self.up2 = self.up(filters*8 * 2, filters*8, dropout=True)
 
-        # Input (1024, 4, 4) -> Output (512, 8, 8)
+        # Input (1024, 28, 4) -> Output (512, 56, 8)
         self.up3 = self.up(filters*8 * 2, filters*8, dropout=True)
 
-        # Input (1024, 8, 8) -> Output (512, 16, 16)
+        # Input (1024, 56, 8) -> Output (512, 112, 16)
         self.up4 = self.up(filters*8 * 2, filters*8)
 
-        # Input (1024, 16, 16) -> Output (256, 32, 32)
-        self.up5 = self.up(filters*8 * 2, filters*4)
+        # Input (1024, 112, 16) -> Output (256, 225, 32)
+        self.up5 = self.up(filters*8 * 2, filters*4, k=(5, 4))
 
-        # Input (512, 32, 32) -> Output (128, 64, 64)
+        # Input (512, 225, 32) -> Output (128, 450, 64)
         self.up6 = self.up(filters*4 * 2, filters*2)
 
-        # Input (256, 64, 64) -> Output (64, 128, 128)
+        # Input (256, 450, 64) -> Output (64, 900, 128)
         self.up7 = self.up(filters*2 * 2, filters)
 
-        # Input (128, 128, 128) -> Output (1, 256, 256)
+        # Input (128, 900, 128) -> Output (1, 1801, 256)
         self.up8 = nn.Sequential(
-            nn.ConvTranspose2d(filters * 2, 1, (4, 4), (2, 2), (1, 1)),
+            nn.ConvTranspose2d(filters * 2, 1, (5, 4), (2, 2), (1, 1)),
             nn.Tanh()
         )
 
@@ -76,11 +76,9 @@ class ClusterUNet(nn.Module):
         down8_out = self.down8(down7_out)
 
         # Decoder
-        # print(f"{down8_out.shape=}")
         up1_out = self.up1(down8_out)
 
         # Skip connections are concatenated
-        # print(f"{up1_out.shape=}, {down7_out.shape=}")
         up2_in = cat((up1_out, down7_out), dim=1)
         up2_out = self.up2(up2_in)
 
