@@ -213,19 +213,10 @@ def createPariedWindows(data, mask, patch_size):
         if s % 100 == 0:
             print(f"Processing sinogram {s:04}...", end=' ', flush=True)
         # Normalise sinogram
-        sino = rescale(data[s], b=65535).astype(np.uint16)
-        # Add synthetic stripes to sinogram
-        # currently done with TomoPhantom, other methods could be used
-        stripe = add_stripes(sino, percentage=2, maxthickness=2,
-                             intensity_thresh=0.2,
-                             stripe_type='full',
-                             variability=0)
-        # Clip back to original range
-        stripe = np.clip(stripe, sino.min(), sino.max())
+        sino = rescale(data[s], b=65535)
         # Split sinogram, mask, & stripe into windows
         sino_windows = create_patches(sino, patch_size)
         mask_windows = create_patches(mask[s], patch_size)
-        stripe_windows = create_patches(stripe, patch_size)
         # Loop through each window
         for w in range(len(sino_windows)):
             # if sinogram doesn't contain stripes, create input/target pair
@@ -234,9 +225,16 @@ def createPariedWindows(data, mask, patch_size):
                 clean = sino_windows[w]
                 filename = f'data/clean/{s:04}_w{w:02}'
                 saveTiff(clean, filename, normalise=False)
+                # Add synthetic stripes to clean sinogram window
+                # currently done with TomoPhantom, other methods could be used
+                stripe = add_stripes(clean, percentage=0.4, maxthickness=2,
+                                     intensity_thresh=0.2, stripe_type='full',
+                                     variability=0)
+                # Clip back to original range
+                stripe = np.clip(stripe, clean.min(), clean.max())
                 # Save 'stripe' input
                 filename = f'data/stripe/{s:04}_w{w:02}'
-                saveTiff(stripe_windows[w], filename, normalise=False)
+                saveTiff(stripe, filename, normalise=False)
             else:
                 # Otherwise, save to different directory as real artifact
                 stripe = sino_windows[w]
