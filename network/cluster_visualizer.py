@@ -341,7 +341,7 @@ class PatchVisualizer:
         fig = plt.gcf()
         plt.show()
         fig.set_size_inches((11, 8.5), forward=False)
-        fig.savefig(f'./images/{sino_idx}_realArt_var0', dpi=500)
+        fig.savefig(f'./images/{sino_idx}_synthArt_lowFreq', dpi=500)
 
     def plot_all_raw(self, index, recon=True):
         if recon:
@@ -360,13 +360,13 @@ class PatchVisualizer:
         fig = plt.gcf()
         plt.show()
         fig.set_size_inches((11, 8.5), forward=False)
-        fig.savefig(f'./images/{sino_idx}_realArt_var0', dpi=500)
+        fig.savefig(f'./images/{sino_idx}_realArt_lowFreq', dpi=500)
 
 
 if __name__ == '__main__':
     root = '/dls/science/users/iug27979/NoStripesNet'
     model = ClusterUNet()
-    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1_variabilityZero.tar',
+    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1.tar',
                             map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['gen_state_dict'])
     v = PatchVisualizer(f'{root}/data', model)
