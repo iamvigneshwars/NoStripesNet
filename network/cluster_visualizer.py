@@ -369,7 +369,8 @@ if __name__ == '__main__':
     checkpoint = torch.load(f'{root}/pretrained_models/cluster_1.tar',
                             map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['gen_state_dict'])
-    v = PatchVisualizer(f'{root}/data', model)
+    v = PatchVisualizer(f'{root}/data', model, full_sino_size=(1801, 2560),
+                        patch_size=(1801, 256))
 
     for sino_idx in [900, 1089, 1666]:
         v.plot_all(sino_idx, recon=True)
