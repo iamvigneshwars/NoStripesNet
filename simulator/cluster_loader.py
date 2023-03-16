@@ -66,11 +66,14 @@ class TomoH5:
         # Make sure flats and darks are cropped correctly
         flats = flats[item]
         darks = darks[item]
+        # Get data and remove any nan values
+        raw = self[item]
+        raw[np.isnan(raw)] = 0
         # Normalise with flats & darks
-        norm = tp.normalize(self[item], flats, darks)
+        norm = tp.normalize(raw, flats, darks)
         # Minus Log
         norm[norm <= 0] = 1e-9
-        norm = tp.minus_log(norm)
+        tp.minus_log(norm, out=norm)
         return norm
 
 
