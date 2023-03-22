@@ -69,8 +69,12 @@ def get_paired_data(tomogram, mask=None):
                                                ('clean', '<f8', (402, 362))])
     # Generate mask if not given
     if mask is None:
+        print("Mask not given so generating one...")
         mask = detect_stripe_larix(tomogram, threshold=0.63)
+        print(f"Done.")
     for s in range(tomogram.shape[0]):
+        if s % 100 == 0:
+            print(f"Processing sinogram {s}/{tomogram.shape[0]}...", end=' ', flush=True)
         # if sinogram doesn't contain stripes, add stripes synthetically
         if np.sum(mask[s]) == 0:
             clean = tomogram[s]
@@ -86,6 +90,8 @@ def get_paired_data(tomogram, mask=None):
             stripe = tomogram[s]
             real_artifact = True
         out[s] = real_artifact, stripe, clean
+        if s % 100 == 0:
+            print("Done.", flush=True)
     return out
 
 
@@ -241,6 +247,8 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
         chunk_max = np.nanmax(chunk[20:-20]['stripe'])
         basepath = os.path.join(root, f'{sample_num:04}')
         for s in range(chunk.shape[0]):
+            if s % 100 == 0:
+                print(f"Saving sinogram {s}/{chunk.shape[0]}...", end=' ', flush=True)
             real_artifact, stripe, clean = chunk[s]
             # Save to disk in correct directory based on whether artifact is
             # real or fake
@@ -258,6 +266,8 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
             if clean is not None:
                 minmax[clean_path] = save_rescaled_sino(clean, chunk_min,
                                                         chunk_max, clean_path)
+            if s % 100 == 0:
+                print("Done.", flush=True)
     elif mode == 'patch':
         chunk_min = np.nanmin(chunk[20:-20]['stripe'])
         chunk_max = np.nanmax(chunk[20:-20]['stripe'])
@@ -284,9 +294,11 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
     return minmax
 
 
-def chunk_generator(hdf_file, chunk_size):
-    flat_h5 = TomoH5('/dls/i12/data/2022/nt33730-1/rawdata/119617.nxs')
-    flats, darks = flat_h5.get_flats(), flat_h5.get_darks()
+def chunk_generator(hdf_file, chunk_size, flat_file=None):
+    flats, darks = None, None
+    if flat_file is not None:
+        flat_h5 = TomoH5(flat_file)
+        flats, darks = flat_h5.get_flats(), flat_h5.get_darks()
     tomo = TomoH5(hdf_file)
     num_sinos = tomo.shape[1]
     num_chunks = int(np.ceil(num_sinos / chunk_size))
@@ -319,15 +331,17 @@ def reload_save(shape, minmax):
         saveTiff(full_tomo[idx], path, normalise=False)
 
 
-def get_data(mode, data, chunk_size, chunk_num, **kwargs):
+def get_data(mode, data, chunk_size, chunk_num, hdf_idx, **kwargs):
     if mode == 'raw':
         return get_raw_data(data)
     elif mode in ['real', 'patch']:
         if 'mask' not in kwargs:
             raise ValueError("A mask should be given.")
+        # Get correct mask for current shift
+        mask = kwargs['mask'][f'm{hdf_idx}']
         # Crop mask to correct size
-        mask_idx = np.s_[chunk_num * chunk_size:(chunk_num+1) * chunk_size]
-        mask = kwargs['mask'][mask_idx]
+        mask_idx = np.s_[:, chunk_num * chunk_size:(chunk_num+1) * chunk_size]
+        mask = np.swapaxes(mask[mask_idx], 0, 1)
         if mode == 'real':
             return get_paired_data(data, mask=mask)
         if 'patch_size' not in kwargs:
@@ -344,19 +358,26 @@ def get_data(mode, data, chunk_size, chunk_num, **kwargs):
                          f"Instead got mode = '{mode}'.")
 
 
-def generate_real_data(root, hdf_file, mode, chunk_size, **kwargs):
-    rescale_dict = {}
-    chunks = chunk_generator(hdf_file, chunk_size)
-    num_chunks = 0
-    for chunk in chunks:
-        data = get_data(mode, chunk, chunk_size, num_chunks, **kwargs)
-        current_idx = chunk_size * num_chunks
-        chunk_dict = save_chunk(data, root, mode, start=current_idx)
-        rescale_dict.update(chunk_dict)
-        num_chunks += 1
-    if num_chunks > 1:
-        print(f"Re-loading & normalizing data w.r.t entire 3D sample...")
-        if mode == 'patch':
-            reload_save(kwargs['patch_size'], rescale_dict)
-        else:
-            reload_save((402, 362), rescale_dict)
+def generate_real_data(root, hdf_file, mode, chunk_size, sample_num, num_shifts,
+                       flat_file, **kwargs):
+    file_num = int(os.path.basename(hdf_file).split('.')[0])
+    for shift_num in range(num_shifts):
+        print(f"########## Shift {shift_num+1}/{num_shifts} ##########")
+        current_hdf = os.path.join(os.path.dirname(hdf_file),
+                                   f'{file_num + shift_num}.nxs')
+        rescale_dict = {}
+        chunks = chunk_generator(current_hdf, chunk_size, flat_file)
+        num_chunks = 0
+        for chunk in chunks:
+            data = get_data(mode, chunk, chunk_size, num_chunks, file_num+shift_num, **kwargs)
+            current_idx = chunk_size * num_chunks
+            chunk_dict = save_chunk(data, root, mode, start=current_idx,
+                                    sample_num=sample_num, shift_num=shift_num)
+            rescale_dict.update(chunk_dict)
+            num_chunks += 1
+        if num_chunks > 1:
+            print(f"Re-loading & normalizing data w.r.t entire 3D sample...")
+            if mode == 'patch':
+                reload_save(kwargs['patch_size'], rescale_dict)
+            else:
+                reload_save((402, 362), rescale_dict)

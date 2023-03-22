@@ -1,6 +1,8 @@
 import argparse
 import os
 import yaml
+import numpy as np
+from simulator.better_loader import generate_real_data
 from .data_simulator import generateSample, simulateFlats, simulateStripes
 from .realdata_loader import convertHDFtoTIFF, createDynamicDataset, \
     savePairedData, saveRawData
@@ -129,6 +131,13 @@ def get_args():
     parser.add_argument("--hdf-file", type=str, default=None,
                         help="Nexus file to load HDF data from. "
                              "Only affects modes 'raw', 'real' and 'dynamic'.")
+    parser.add_argument('-C', "--chunk-size", type=int, default=243,
+                        help="Size of chunks to load real-life data in.")
+    parser.add_argument("--flats", type=str, default=None,
+                        help="Path to HDF file containing flat & dark fields.")
+    parser.add_argument("--mask", type=str, default=None,
+                        help="Path to mask on stripe locations in data. "
+                             "If left blank, a mask will be generated.")
     parser.add_argument("--frame-angles", type=int, default=900,
                         help="Number of angles per 'frame' of a scan. "
                              "Only affects 'dynamic' mode.")
@@ -197,37 +206,23 @@ if __name__ == '__main__':
                                           output_path=mainPath,
                                           sampleNo=sampleNo,
                                           verbose=verbose)
-        elif args.mode == 'real':
-            pipeline = yaml.safe_load(open(args.pipeline))
+        elif args.mode in ['raw', 'real', 'dynamic']:
             if args.hdf_file is None:
                 raise ValueError(
                     "HDF File is None. Please include '--hdf-file' option.")
-            savePairedData(mainPath,
-                           args.hdf_file,
-                           pipeline,
-                           sampleNo=sampleNo,
-                           num_shifts=shifts,
-                           shiftstep=shift_step)
-        elif args.mode == 'raw':
+            mask = args.mask
+            if mask is not None:
+                mask = np.load(mask)
             pipeline = yaml.safe_load(open(args.pipeline))
-            if args.hdf_file is None:
-                raise ValueError(
-                    "HDF File is None. Please include '--hdf-file' option.")
-            saveRawData(mainPath,
-                        args.hdf_file,
-                        pipeline,
-                        sampleNo=sampleNo,
-                        num_shifts=shifts)
-        elif args.mode == 'dynamic':
-            pipeline = yaml.safe_load(open(args.pipeline))
-            if args.hdf_file is None:
-                raise ValueError(
-                    "HDF File is None. Please include '--hdf-file' option.")
-            createDynamicDataset(mainPath,
-                                 args.hdf_file,
-                                 pipeline,
-                                 sampleNo=sampleNo,
-                                 sino_size=angles_per_frame)
+            generate_real_data(mainPath,
+                               args.hdf_file,
+                               args.mode,
+                               args.chunk_size,
+                               sampleNo,
+                               shifts,
+                               args.flats,
+                               mask=mask,
+                               frame_angles=angles_per_frame)
         else:
             raise ValueError(f"Option '--mode' should be one of "
                              f"'simple', 'complex', 'raw', 'real', 'dynamic'. "
