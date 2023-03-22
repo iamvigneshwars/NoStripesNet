@@ -12,7 +12,8 @@ from .models.discriminators import *
 from .models.cluster_models import ClusterUNet, ClusterDiscriminator
 from .datasets import PairedWindowDataset, BaseDataset, PairedFullDataset, \
     MaskedDataset
-from utils import apply_metrics, test_metrics, Rescale
+from utils.metrics import apply_metrics, test_metrics
+from utils.misc import Rescale
 
 
 def createModelParams(model, path, device):
