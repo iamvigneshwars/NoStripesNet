@@ -22,8 +22,8 @@ def makeDirectories(dataDir, sampleNo, shifts, mode):
         mode : str
             The mode that determines how sub-directories will be created.
             Must be one of:
-                ['simple', 'complex', 'raw']:
-                    For synthetic data ('simple' or 'complex'), or real data
+                ['complex', 'raw']:
+                    For synthetic data with noise ('complex'), or real data
                     loaded directly from an HDF file without any pre- or post-
                     processing ('raw').
                     Creates the following structure:
@@ -32,6 +32,14 @@ def makeDirectories(dataDir, sampleNo, shifts, mode):
                         │   ├── clean
                         │   ├── shift00
                         │   ├── shift01
+                        ... ...
+                'simple':
+                    For synthetic data with no noise.
+                    Creates the following structure:
+                        <dataDir>
+                        ├── <sampleNo>
+                        │   ├── clean
+                        │   └── stripe
                         ...
                 'real':
                     For real life data that simulates artifacts in clean
@@ -54,7 +62,7 @@ def makeDirectories(dataDir, sampleNo, shifts, mode):
             For modes ['real', 'dynamic'], this is <dataDir>.
     """
     mainPath = dataDir
-    if mode in ['simple', 'complex', 'raw']:
+    if mode in ['complex', 'raw']:
         mainPath = os.path.join(dataDir, str(sampleNo).zfill(4))
         os.makedirs(mainPath, exist_ok=True)
         cleanPath = os.path.join(mainPath, 'clean')
@@ -62,7 +70,14 @@ def makeDirectories(dataDir, sampleNo, shifts, mode):
         for shift in range(shifts):
             shiftPath = os.path.join(mainPath, 'shift' + str(shift).zfill(2))
             os.makedirs(shiftPath, exist_ok=True)
-    elif mode =='real':
+    elif mode == 'simple':
+        mainPath = os.path.join(dataDir, str(sampleNo).zfill(4))
+        os.makedirs(mainPath, exist_ok=True)
+        cleanPath = os.path.join(mainPath, 'clean')
+        os.makedirs(cleanPath, exist_ok=True)
+        stripePath = os.path.join(mainPath, 'stripe')
+        os.makedirs(stripePath, exist_ok=True)
+    elif mode == 'real':
         realArtPath = os.path.join(dataDir, 'real_artifacts')
         os.makedirs(realArtPath, exist_ok=True)
         fakeArtPath = os.path.join(dataDir, 'fake_artifacts')
@@ -82,35 +97,41 @@ def get_args():
                                                  "generate samples of data.")
     parser.add_argument('-m', '--mode', type=str, default='complex',
                         help="Type of data to generate. Must be one of: "
-                             "['simple', 'complex', 'real', 'raw', 'dynamic']")
+                             "['simple', 'complex', 'raw', 'real', 'dynamic']")
     parser.add_argument('-r', '--root', type=str, default=None,
-                        help="Data root to generate samples in")
+                        help="Directory to save data in.")
     parser.add_argument('-S', "--samples", type=int, default=1,
-                        help="Number of samples to generate")
-    parser.add_argument('-s', "--shifts", type=int, default=5,
-                        help="Number of vertical shifts for each sample.")
-    parser.add_argument('-N', "--size", type=int, default=256,
-                        help="Size of image generated (cubic). "
-                             "Also height of sinogram")
-    parser.add_argument('-o', "--objects", type=int, default=300,
-                        help="Number of objects used to generate each sample")
-    parser.add_argument('-I', "--I0", type=int, default=40000,
-                        help="Full-beam photon flux intensity")
-    parser.add_argument('-f', "--flatsnum", type=int, default=20,
-                        help="Number of the flat fields generated")
-    parser.add_argument('-p', "--shiftstep", type=int, default=2,
-                        help="Shift step of a sample in pixels")
+                        help="Number of samples to generate.")
     parser.add_argument("--start", type=int, default=0,
-                        help="Sample number to begin at (useful if some data "
-                             "has already been generated)")
+                        help="Sample number to begin counting at (useful if "
+                             "some data has already been generated).")
+    parser.add_argument('-s', "--shifts", type=int, default=5,
+                        help="Number of vertical shifts for each sample. "
+                             "Only affects modes 'complex', 'raw' and 'real'.")
+    parser.add_argument('-p', "--shiftstep", type=int, default=2,
+                        help="Shift step of a sample in pixels. "
+                             "Only affects modes 'complex', 'raw' and real'.")
+    parser.add_argument('-N', "--size", type=int, default=256,
+                        help="Size of sample generated (cubic). "
+                             "Only affects modes 'simple' and 'complex'.")
+    parser.add_argument('-o', "--objects", type=int, default=300,
+                        help="Number of objects to generate for each sample. "
+                             "Only affects modes 'simple' and 'complex'.")
+    parser.add_argument('-f', "--flatsnum", type=int, default=20,
+                        help="Number of the flat fields to generate. "
+                             "Only affects 'complex' mode.")
+    parser.add_argument('-I', "--I0", type=int, default=40000,
+                        help="Full-beam photon flux intensity. "
+                             "Only affects 'complex' mode.")
     parser.add_argument("--pipeline", type=str, default='tomo_pipeline.yml',
-                        help="YAML pipeline file for loading HDF data using "
-                             "HTTomo. (only used when --mode is one of "
-                             "['real', 'raw', 'dynamic'])")
+                        help="HTTomo YAML pipeline file for loading HDF data. "
+                             "Only affects modes 'raw', 'real' and 'dynamic'.")
     parser.add_argument("--hdf-file", type=str, default=None,
-                        help="HDF file to load real data from. "
-                             "(only used when --mode is one of "
-                             "['real', 'raw', 'dynamic'])")
+                        help="Nexus file to load HDF data from. "
+                             "Only affects modes 'raw', 'real' and 'dynamic'.")
+    parser.add_argument("--frame-angles", type=int, default=900,
+                        help="Number of angles per 'frame' of a scan. "
+                             "Only affects 'dynamic' mode.")
     parser.add_argument('-v', "--verbose", action="store_true",
                         help="Print some extra information when running")
     return parser.parse_args()
@@ -134,6 +155,7 @@ if __name__ == '__main__':
     I0 = args.I0
     flatsnum = args.flatsnum
     shift_step = args.shiftstep
+    angles_per_frame = args.frame_angles
     verbose = args.verbose
     start = args.start
     total_samples = start + samples
@@ -205,8 +227,8 @@ if __name__ == '__main__':
                                  args.hdf_file,
                                  pipeline,
                                  sampleNo=sampleNo,
-                                 sino_size=900)
+                                 sino_size=angles_per_frame)
         else:
             raise ValueError(f"Option '--mode' should be one of "
-                             f"['simple', 'complex', 'real']. "
+                             f"'simple', 'complex', 'raw', 'real', 'dynamic'. "
                              f"Instead got '{args.mode}'.")
