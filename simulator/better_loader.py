@@ -262,8 +262,8 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
             # Save sino as tiff and store path & min/max in dictionary
             minmax[stripe_path] = save_rescaled_sino(stripe, chunk_min,
                                                      chunk_max, stripe_path)
-            # clean may be None as it's not implemented for real artifacts
-            if clean is not None:
+            # clean may be all nan as it's not implemented for real artifacts
+            if not np.isnan(clean).all():
                 minmax[clean_path] = save_rescaled_sino(clean, chunk_min,
                                                         chunk_max, clean_path)
             if s % 100 == 0:
@@ -286,8 +286,8 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
                 minmax[stripe_path] = save_rescaled_sino(stripe, chunk_min,
                                                          chunk_max,
                                                          stripe_path)
-                # clean may be None as it's not implemented for real artifacts
-                if clean is not None:
+                # clean may be all nan
+                if not np.isnan(clean).all():
                     minmax[clean_path] = save_rescaled_sino(clean, chunk_min,
                                                             chunk_max,
                                                             clean_path)
