@@ -79,7 +79,7 @@ def makeDirectories(dataDir, sampleNo, shifts, mode):
         os.makedirs(cleanPath, exist_ok=True)
         stripePath = os.path.join(mainPath, 'stripe')
         os.makedirs(stripePath, exist_ok=True)
-    elif mode == 'real':
+    elif mode in ['real', 'patch']:
         realArtPath = os.path.join(dataDir, 'real_artifacts')
         os.makedirs(realArtPath, exist_ok=True)
         fakeArtPath = os.path.join(dataDir, 'fake_artifacts')
@@ -143,6 +143,8 @@ def get_args():
                              "Only affects 'dynamic' mode.")
     parser.add_argument('-v', "--verbose", action="store_true",
                         help="Print some extra information when running")
+    parser.add_argument("--patch-size", type=int, default=[1801, 256], nargs=2,
+                        help="Size of patches to split data into.")
     return parser.parse_args()
 
 
@@ -206,7 +208,7 @@ if __name__ == '__main__':
                                           output_path=mainPath,
                                           sampleNo=sampleNo,
                                           verbose=verbose)
-        elif args.mode in ['raw', 'real', 'dynamic']:
+        elif args.mode in ['raw', 'real', 'dynamic', 'patch']:
             if args.hdf_file is None:
                 raise ValueError(
                     "HDF File is None. Please include '--hdf-file' option.")
@@ -214,6 +216,7 @@ if __name__ == '__main__':
             if mask is not None:
                 mask = np.load(mask)
             pipeline = yaml.safe_load(open(args.pipeline))
+            patch_size = args.patch_size
             generate_real_data(mainPath,
                                args.hdf_file,
                                args.mode,
@@ -222,7 +225,8 @@ if __name__ == '__main__':
                                shifts,
                                args.flats,
                                mask=mask,
-                               frame_angles=angles_per_frame)
+                               frame_angles=angles_per_frame,
+                               patch_size=patch_size)
         else:
             raise ValueError(f"Option '--mode' should be one of "
                              f"'simple', 'complex', 'raw', 'real', 'dynamic'. "
