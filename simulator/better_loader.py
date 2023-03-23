@@ -269,10 +269,10 @@ def save_chunk(chunk, root, mode, start=0, sample_num=0, shift_num=0):
             if s % 100 == 0:
                 print("Done.", flush=True)
     elif mode == 'patch':
-        chunk_min = np.nanmin(chunk[20:-20]['stripe'])
-        chunk_max = np.nanmax(chunk[20:-20]['stripe'])
         basepath = os.path.join(root, f'{sample_num:04}')
         for s in range(chunk.shape[0]):
+            chunk_min = np.nanmin(chunk[s]['stripe'])
+            chunk_max = np.nanmax(chunk[s]['stripe'])
             for p in range(chunk.shape[1]):
                 real_artifact, stripe, clean = chunk[s, p]
                 if real_artifact:
