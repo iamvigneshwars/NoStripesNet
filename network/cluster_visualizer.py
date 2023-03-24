@@ -6,12 +6,13 @@ from utils.data_io import loadTiff, rescale
 from utils.tomography import reconstruct
 from utils.misc import toTensor, toNumpy, plot_images
 from network.models.cluster_models import ClusterUNet
+from larix.methods.misc import INPAINT_EUCL_WEIGHTED
 
 
 class PatchVisualizer:
     """Class to visualize patches of a sinogram"""
     def __init__(self, root, model, full_sino_size=(1792, 2560),
-                 patch_size=(256, 256)):
+                 patch_size=(256, 256), sample_no=0, shift_no=0):
         """Parameters:
             root : str
                 Path to root of dataset
@@ -30,6 +31,7 @@ class PatchVisualizer:
         self.num_patches_h = self.size[0] // self.patch_size[0]
         self.num_patches_w = self.size[1] // self.patch_size[1]
         self.num_patches = self.num_patches_h * self.num_patches_w
+        self.prefix = f'{sample_no:04}_shift{shift_no:02}'
 
     def get_patch(self, index, patch_num, mode):
         """Get a single patch of a sinogram. If the patch_num given does not
@@ -50,13 +52,14 @@ class PatchVisualizer:
             sub_dir = 'clean'
         else:
             sub_dir = mode
-        path = os.path.join(self.root, sub_dir, f'{index:04}_w{patch_num:02}')
+        path = os.path.join(self.root, 'fake_artifacts', sub_dir,
+                            f'{self.prefix}_{index:04}_w{patch_num:02}')
         if os.path.exists(path+'.tif'):
             return loadTiff(path, normalise=False)
         else:
             if mode == 'raw':
-                path = os.path.join(self.root, 'real_artifacts',
-                                    f'{index:04}_w{patch_num:02}')
+                path = os.path.join(self.root, 'real_artifacts', 'stripe',
+                                    f'{self.prefix}_{index:04}_w{patch_num:02}')
                 return loadTiff(path, normalise=False)
             else:
                 return np.zeros(self.patch_size, dtype=np.uint16)
@@ -84,7 +87,7 @@ class PatchVisualizer:
             mask = np.abs(clean - stripe).astype(np.bool_, copy=False)
         elif artifact_type == 'real':
             stripe = self.get_patch(index, patch_num, 'raw')
-            mask_file = os.path.join(self.root, 'real_artifacts',
+            mask_file = os.path.join(self.root, 'real_artifacts', 'masks',
                                      f'mask_{index:04}_w{patch_num:02}.npy')
             if os.path.exists(mask_file):
                 mask = np.load(mask_file)
@@ -338,10 +341,10 @@ class PatchVisualizer:
             plt.subplot(*subplot_size, 6)
             self.plot_model_reconstruction(index, 'fake', show=False)
             plt.clim(-0.1, 0.15)
-        fig = plt.gcf()
+        # fig = plt.gcf()
         plt.show()
-        fig.set_size_inches((11, 8.5), forward=False)
-        fig.savefig(f'./images/{sino_idx}_synthArt_lowFreq', dpi=500)
+        # fig.set_size_inches((11, 8.5), forward=False)
+        # fig.savefig(f'./images/{sino_idx}_synthArt_lowFreq', dpi=500)
 
     def plot_all_raw(self, index, recon=True):
         if recon:
@@ -357,22 +360,55 @@ class PatchVisualizer:
             self.plot_reconstruction(index, 'raw', show=False)
             plt.subplot(*subplot_size, 4)
             self.plot_model_reconstruction(index, 'real', show=False)
-        fig = plt.gcf()
+        # fig = plt.gcf()
         plt.show()
-        fig.set_size_inches((11, 8.5), forward=False)
-        fig.savefig(f'./images/{sino_idx}_realArt_lowFreq', dpi=500)
+        # fig.set_size_inches((11, 8.5), forward=False)
+        # fig.savefig(f'./images/{sino_idx}_realArt_lowFreq', dpi=500)
+
+
+def inpaint_larix(index):
+    sino = v.get_sinogram(index, 'raw')
+    mask = np.empty_like(sino)
+    for i in range(10):
+        filename = f'mask_{index:04}_w{i:02}.npy'
+        filepath = f'{root}/data/0000/real_artifacts/masks/{filename}'
+        if os.path.exists(filepath):
+            mask_patch = np.load(filepath)
+        else:
+            mask_patch = np.zeros((1801, 256))
+        mask[:, i * 256:(i + 1) * 256] = mask_patch
+    inpainted = INPAINT_EUCL_WEIGHTED(sino, mask, 2, 5, 'random')
+    recon = reconstruct(sino)
+    recon_inpainted = reconstruct(inpainted)
+    plt.subplot(231)
+    plt.imshow(sino, cmap='gray', vmin=0, vmax=65535)
+    plt.title(f"Sinogram {index}")
+    plt.subplot(232)
+    plt.imshow(mask, cmap='gray', vmin=0, vmax=1)
+    plt.title(f"Mask {index}")
+    plt.subplot(233)
+    plt.imshow(inpainted, cmap='gray', vmin=0, vmax=65535)
+    plt.title(f"Inpainted {index}")
+    plt.subplot(234)
+    plt.imshow(recon, cmap='gray', vmin=-0.05, vmax=0.18)
+    plt.subplot(236)
+    plt.imshow(recon_inpainted, cmap='gray', vmin=-0.05, vmax=0.2)
+    plt.show()
 
 
 if __name__ == '__main__':
     root = '/dls/science/users/iug27979/NoStripesNet'
     model = ClusterUNet()
-    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1.tar',
+    checkpoint = torch.load(f'{root}/pretrained_models/cluster_1_lowFreq.tar',
                             map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['gen_state_dict'])
-    v = PatchVisualizer(f'{root}/data', model, full_sino_size=(1801, 2560),
+    v = PatchVisualizer(f'{root}/data/0000', model, full_sino_size=(1801, 2560),
                         patch_size=(1801, 256))
 
+    inpaint_larix(1200)
+    exit(0)
+
     for sino_idx in [900, 1089, 1666]:
-        v.plot_all(sino_idx, recon=True)
+        v.plot_all(sino_idx, recon=False)
     for sino_idx in [852, 1080, 1200]:
-        v.plot_all_raw(sino_idx, recon=True)
+        v.plot_all_raw(sino_idx, recon=False)

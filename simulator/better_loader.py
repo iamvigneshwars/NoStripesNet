@@ -146,8 +146,8 @@ def get_patch_paired_data(tomogram, mask=None, patch_size=(1801, 256)):
         mask_patches = create_patches(mask[s], patch_size)
         tmp_out = np.ndarray(len(sino_patches),
                              dtype=[('real_artifact', '?'),
-                                    ('stripe', '<f8', patch_size),
-                                    ('clean', '<f8', patch_size)])
+                                    ('stripe', 'f', patch_size),
+                                    ('clean', 'f', patch_size)])
         # Loop through each patch
         for p in range(len(sino_patches)):
             # if sinogram doesn't contain stripes, add stripes synthetically
