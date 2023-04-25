@@ -4,3 +4,5 @@ data/
 **.csv
 simpledata/
 realdata/
+.ipynb_checkpoints
+.jython_cache
